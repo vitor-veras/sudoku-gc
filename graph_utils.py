@@ -1,15 +1,17 @@
 from random import shuffle
-# Retorna o index do vértice(célula) no sudoku.
-def index(l, c):
+
+
+# Retorna o position do vértice(célula) no sudoku.
+def position(l, c):
     return 9 * l + c
 
 # Cria o grafo do sudoku, do seguinte formato:
 #   [A1,A2,A3...] onde A é uma aresta da forma: (v1,v2)
 #   [(v1,v2),(v2,v3),(v3,v4)...]
 #   As arestas são feitas em cada linha, coluna e quadrante do sudoku.
-def mk_sudoku_graph():
+def sudoku_graph_builder():
     # edge = (Vi, Vi+1)
-    def mk_complete_graph(vertices):
+    def clique_graph(vertices):
         graph = []
         for i in range(len(vertices)):
             for j in range(i + 1, len(vertices)):
@@ -21,22 +23,22 @@ def mk_sudoku_graph():
     for r in range(9):
         edges = []
         for c in range(9):
-            edges += [index(r, c)]
-        graph += mk_complete_graph(edges)
+            edges += [position(r, c)]
+        graph += clique_graph(edges)
     # Arestas da coluna.
     for c in range(9):
         edges = []
         for r in range(9):
-            edges += [index(r, c)]
-        graph += mk_complete_graph(edges)
+            edges += [position(r, c)]
+        graph += clique_graph(edges)
     # Arestas do quadrante.
     for rb in range(0, 9, 3):
         for cb in range(0, 9, 3):
             edges = []
             for r in range(3):
                 for c in range(3):
-                    edges += [index(rb + r, cb + c)]
-            graph += mk_complete_graph(edges)
+                    edges += [position(rb + r, cb + c)]
+            graph += clique_graph(edges)
     # Remove duplicados.
     return list(set(graph))
 
@@ -59,14 +61,14 @@ def adj_list(graph):
     return adj
 
 # Variáveis globais.
-adjacencies = adj_list(mk_sudoku_graph())
+adjacencies = adj_list(sudoku_graph_builder())
 colors = [0]*81
 fixed = [False]*81
 ncolor = 0
 debug = False
 
 # Lê o sudoku do txt passado.
-def read_puzzle():
+def read_sudoku():
     global ncolor
     f = open('sudoku.txt')
     for r in range(9):
@@ -74,7 +76,7 @@ def read_puzzle():
         for c in range(9):
             if l[c] == '.':
                 continue
-            v = index(r, c)
+            v = position(r, c)
             # Marca a linha ja preenchida como fixo.
             fixed[v] = True
             # Adiciona a cor(valor) em colors
@@ -86,7 +88,7 @@ def read_puzzle():
 def print_solution(soln):
     for r in range(9):
         for c in range(9):
-            v = soln[index(r, c)]
+            v = soln[position(r, c)]
             if v == 0:
                 print(".", end="")
             else:
@@ -94,14 +96,13 @@ def print_solution(soln):
         print()
 
 
-
 # Função de coloração:
-def color_puzzle(max_solns, shuffle_colors):
+def colorize_sudoku(max_solutions, shuffle_colors):
     global ncolor, colors, debug
     if debug:
         print("coloring %d" % (ncolor,))
     # Verificação de casos base.
-    if max_solns != None and max_solns <= 0:
+    if max_solutions != None and max_solutions <= 0:
         return []
     if ncolor >= 81:
         return [colors*1]
@@ -112,6 +113,7 @@ def color_puzzle(max_solns, shuffle_colors):
             if colors[v0] > 0:
                 ncs = ncs.union({colors[v0]})
         return ncs
+
     # Encotra o primeiro v que tem o menor numero de cores possiveis.
     def most_constrained_free():
         ncs = -1
@@ -126,20 +128,21 @@ def color_puzzle(max_solns, shuffle_colors):
                 ncs = ncsv
         assert target != -1
         return target
+    
     # Retorna o primeiro vértice sem cor.
-    def first_free():
+    def f_colorless_v():
         for v in range(len(colors)):
             if colors[v] == 0:
                 return v
         assert False
     # No point in MCF if all solutions? I'm not sure
     # this is right / needed
-    if max_solns == 1:
+    if max_solutions == 1:
         v = most_constrained_free()
     else:
-        v = first_free()
+        v = f_colorless_v()
     # Retorna os valores válidos de cor para v.
-    cs = set(range(1,10)).difference(neighbor_colors(v))
+    cs = set(range(1, 10)).difference(neighbor_colors(v))
     # Se não existir cor possível.
     if len(cs) == 0:
         return []
@@ -147,23 +150,23 @@ def color_puzzle(max_solns, shuffle_colors):
     if shuffle_colors:
         cs = list(cs)
         shuffle(cs)
-    # Testa as cores possiveis para v, chamando color_puzzle() recursivamente
-    # e caso ache inclui a solução na lista de soluções solns
+    # Testa as cores possiveis para v, chamando colorize_sudoku() recursivamente
+    # e caso ache inclui a solução na lista de soluções solutions
     ncolor += 1
-    solns = []
+    solutions = []
     for c in cs:
         if debug:
             print("coloring %d with %d (%d)" % (v, c, ncolor))
         colors[v] = c
-        solns_cur = color_puzzle(max_solns, shuffle_colors)
+        current_solution = colorize_sudoku(max_solutions, shuffle_colors)
         if debug:
-            print("found %d solutions" % (len(solns_cur),))
-        solns += solns_cur
-        if max_solns != None:
-            max_solns -= len(solns_cur)
-            if max_solns <= 0:
+            print("found %d solutions" % (len(current_solution),))
+        solutions += current_solution
+        if max_solutions != None:
+            max_solutions -= len(current_solution)
+            if max_solutions <= 0:
                 break
     colors[v] = 0
     ncolor -= 1
     # Retorna as soluções
-    return solns
+    return solutions
