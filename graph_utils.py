@@ -111,18 +111,19 @@ def colorize_sudoku(max_solutions, shuffle_colors):
                 ncs = ncs.union({colors[v0]})
         return ncs
 
-    # Encotra o primeiro v que tem o menor numero de cores possiveis.
-    def most_constrained_free():
+    # Encotra o primeiro v que tem o maior numero de adjacentes coloridos.
+    # O v escolhido pode ser preenchido com o menor número de cores
+    def min_colorful_v():
         ncs = -1
         target = -1
         for v in range(len(colors)):
-            # Don't recolor a vertex
+            # Passa por vértices já coloridos e continua a busca
             if colors[v] > 0:
                 continue
-            ncsv = len(neighbor_colors(v))
-            if ncsv > ncs:
+            c_neighbors = len(neighbor_colors(v))
+            if c_neighbors > ncs:
                 target = v
-                ncs = ncsv
+                ncs = c_neighbors
         assert target != -1
         return target
     
@@ -134,7 +135,7 @@ def colorize_sudoku(max_solutions, shuffle_colors):
         assert False
 
     if max_solutions == 1:
-        v = most_constrained_free()
+        v = min_colorful_v()
     else:
         v = f_colorless_v()
     # Retorna os valores válidos de cor para v.
