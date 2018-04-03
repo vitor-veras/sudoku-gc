@@ -5,5 +5,5 @@ setrecursionlimit(1000)
 read_sudoku()
 for solution in colorize_sudoku(None, False):
     print("Solved Sudoku: ")
-    print_solution(solution)
+    print_sudoku(solution)
     print()

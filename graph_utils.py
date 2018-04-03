@@ -11,7 +11,7 @@ def position(l, c):
 #   As arestas são feitas em cada linha, coluna e quadrante do sudoku.
 def sudoku_graph_builder():
     # edge = (Vi, Vi+1)
-    def clique_graph(vertices):
+    def compose_graph(vertices):
         graph = []
         for i in range(len(vertices)):
             for j in range(i + 1, len(vertices)):
@@ -24,13 +24,13 @@ def sudoku_graph_builder():
         edges = []
         for c in range(9):
             edges += [position(r, c)]
-        graph += clique_graph(edges)
+        graph += compose_graph(edges)
     # Arestas da coluna.
     for c in range(9):
         edges = []
         for r in range(9):
             edges += [position(r, c)]
-        graph += clique_graph(edges)
+        graph += compose_graph(edges)
     # Arestas do quadrante.
     for rb in range(0, 9, 3):
         for cb in range(0, 9, 3):
@@ -38,7 +38,7 @@ def sudoku_graph_builder():
             for r in range(3):
                 for c in range(3):
                     edges += [position(rb + r, cb + c)]
-            graph += clique_graph(edges)
+            graph += compose_graph(edges)
     # Remove duplicados.
     return list(set(graph))
 
@@ -65,7 +65,6 @@ adjacencies = adj_list(sudoku_graph_builder())
 colors = [0]*81
 fixed = [False]*81
 ncolor = 0
-debug = False
 
 # Lê o sudoku do txt passado.
 def read_sudoku():
@@ -85,7 +84,7 @@ def read_sudoku():
             ncolor += 1
 
 # Imprime as soluções.
-def print_solution(soln):
+def print_sudoku(soln):
     for r in range(9):
         for c in range(9):
             v = soln[position(r, c)]
@@ -98,9 +97,7 @@ def print_solution(soln):
 
 # Função de coloração:
 def colorize_sudoku(max_solutions, shuffle_colors):
-    global ncolor, colors, debug
-    if debug:
-        print("coloring %d" % (ncolor,))
+    global ncolor, colors
     # Verificação de casos base.
     if max_solutions != None and max_solutions <= 0:
         return []
@@ -135,8 +132,7 @@ def colorize_sudoku(max_solutions, shuffle_colors):
             if colors[v] == 0:
                 return v
         assert False
-    # No point in MCF if all solutions? I'm not sure
-    # this is right / needed
+
     if max_solutions == 1:
         v = most_constrained_free()
     else:
@@ -155,12 +151,8 @@ def colorize_sudoku(max_solutions, shuffle_colors):
     ncolor += 1
     solutions = []
     for c in cs:
-        if debug:
-            print("coloring %d with %d (%d)" % (v, c, ncolor))
         colors[v] = c
         current_solution = colorize_sudoku(max_solutions, shuffle_colors)
-        if debug:
-            print("found %d solutions" % (len(current_solution),))
         solutions += current_solution
         if max_solutions != None:
             max_solutions -= len(current_solution)
