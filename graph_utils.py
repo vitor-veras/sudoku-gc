@@ -1,12 +1,14 @@
 from random import shuffle
-# Produce a vertex number from a coordinate
-def index(r, c):
-    return 9 * r + c
+# Retorna o index do vértice(célula) no sudoku.
+def index(l, c):
+    return 9 * l + c
 
-# Create the graph for a 9x9 Sudoku in edge-list format.
-# Only edges (v1, v2) with v1 < v2 are returned.
+# Cria o grafo do sudoku, do seguinte formato:
+#   [A1,A2,A3...] onde A é uma aresta da forma: (v1,v2)
+#   [(v1,v2),(v2,v3),(v3,v4)...]
+#   As arestas são feitas em cada linha, coluna e quadrante do sudoku.
 def mk_sudoku_graph():
-    # Create a clique on the given vertices
+    # edge = (Vi, Vi+1)
     def mk_complete_graph(vertices):
         graph = []
         for i in range(len(vertices)):
@@ -14,21 +16,20 @@ def mk_sudoku_graph():
                 edge = (vertices[i], vertices[j])
                 graph += [tuple(sorted(edge))]
         return graph
-    # Start with the empty graph
     graph = []
-    # Add column edges for each row
+    # Arestas da linha.
     for r in range(9):
         edges = []
         for c in range(9):
             edges += [index(r, c)]
         graph += mk_complete_graph(edges)
-    # Add row edges for each column
+    # Arestas da coluna.
     for c in range(9):
         edges = []
         for r in range(9):
             edges += [index(r, c)]
         graph += mk_complete_graph(edges)
-    # Add box edges for each box
+    # Arestas do quadrante.
     for rb in range(0, 9, 3):
         for cb in range(0, 9, 3):
             edges = []
@@ -36,34 +37,37 @@ def mk_sudoku_graph():
                 for c in range(3):
                     edges += [index(rb + r, cb + c)]
             graph += mk_complete_graph(edges)
-    # Remove duplicate edges
+    # Remove duplicados.
     return list(set(graph))
 
-# Convert a graph from edge-list to adjacency-list format
+# Converte a lista graph[] em um dictionary de adjacências da forma:
+# {
+#   index_V0:[index_V0_adj],
+#     ...
+#   index_Vi:[index_Vi_adj]
+#  }
 def adj_list(graph):
-    # Start with the empty graph
-    alist = {}
-    # Insert an edge in the graph
+    adj = {}
     def insert_edge(v1, v2):
-        if v1 in alist:
-            alist[v1] += [v2]
+        if v1 in adj:
+            adj[v1] += [v2]
         else:
-            alist[v1] = [v2]
-    # For each edge, insert it both ways
+            adj[v1] = [v2]
     for (v1, v2) in graph:
         insert_edge(v1, v2)
         insert_edge(v2, v1)
-    return alist
+    return adj
 
-constraints = adj_list(mk_sudoku_graph())
+# Variáveis globais.
+adjacencies = adj_list(mk_sudoku_graph())
 colors = [0]*81
-fixed = [False]*81   # Not currently used
-ncolored = 0
+fixed = [False]*81
+ncolor = 0
 debug = False
 
-# Read in a Sudoku and color the given graph vertices
+# Lê o sudoku do txt passado.
 def read_puzzle():
-    global ncolored
+    global ncolor
     f = open('sudoku.txt')
     for r in range(9):
         l = f.readline()
@@ -71,11 +75,14 @@ def read_puzzle():
             if l[c] == '.':
                 continue
             v = index(r, c)
+            # Marca a linha ja preenchida como fixo.
             fixed[v] = True
+            # Adiciona a cor(valor) em colors
             colors[v] = int(l[c])
-            ncolored += 1
+            # Incrementa o número de vértices(células) coloridas.
+            ncolor += 1
 
-# Print a Sudoku solution
+# Imprime as soluções.
 def print_solution(soln):
     for r in range(9):
         for c in range(9):
@@ -88,28 +95,24 @@ def print_solution(soln):
 
 
 
-# Actually color the graph. Returns a list of complete
-# lists of colors
+# Função de coloração:
 def color_puzzle(max_solns, shuffle_colors):
-    global ncolored, colors, debug
+    global ncolor, colors, debug
     if debug:
-        print("coloring %d" % (ncolored,))
-    # Base case: If no more solutions are needed, give up
+        print("coloring %d" % (ncolor,))
+    # Verificação de casos base.
     if max_solns != None and max_solns <= 0:
         return []
-    # Base case: If we've found a solution,
-    # return a list containing it
-    if ncolored >= 81:
+    if ncolor >= 81:
         return [colors*1]
-    # Return the set of colors of colored neighbors of v
+    # Retorna as cores dos vizinhos de v para saber de quais cores são possíveis pintar v.
     def neighbor_colors(v):
         ncs = set([])
-        for v0 in constraints[v]:
+        for v0 in adjacencies[v]:
             if colors[v0] > 0:
                 ncs = ncs.union({colors[v0]})
         return ncs
-    # Find the first v that has the least number
-    # of possible colors of all uncolored vertices
+    # Encotra o primeiro v que tem o menor numero de cores possiveis.
     def most_constrained_free():
         ncs = -1
         target = -1
@@ -123,7 +126,7 @@ def color_puzzle(max_solns, shuffle_colors):
                 ncs = ncsv
         assert target != -1
         return target
-    # Return the first uncolored vertex
+    # Retorna o primeiro vértice sem cor.
     def first_free():
         for v in range(len(colors)):
             if colors[v] == 0:
@@ -135,21 +138,22 @@ def color_puzzle(max_solns, shuffle_colors):
         v = most_constrained_free()
     else:
         v = first_free()
-    # Get ordered set of possible colors for chosen vertex
+    # Retorna os valores válidos de cor para v.
     cs = set(range(1,10)).difference(neighbor_colors(v))
-    # If there are no legal colors, we're stuck
+    # Se não existir cor possível.
     if len(cs) == 0:
         return []
-    # If generating, shuffle the colors from priority order
+    # Embaralha as cores
     if shuffle_colors:
         cs = list(cs)
         shuffle(cs)
-    # Try all possible legal colors for v
-    ncolored += 1
+    # Testa as cores possiveis para v, chamando color_puzzle() recursivamente
+    # e caso ache inclui a solução na lista de soluções solns
+    ncolor += 1
     solns = []
     for c in cs:
         if debug:
-            print("coloring %d with %d (%d)" % (v, c, ncolored))
+            print("coloring %d with %d (%d)" % (v, c, ncolor))
         colors[v] = c
         solns_cur = color_puzzle(max_solns, shuffle_colors)
         if debug:
@@ -160,5 +164,6 @@ def color_puzzle(max_solns, shuffle_colors):
             if max_solns <= 0:
                 break
     colors[v] = 0
-    ncolored -= 1
+    ncolor -= 1
+    # Retorna as soluções
     return solns
